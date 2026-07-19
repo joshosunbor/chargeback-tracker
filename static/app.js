@@ -11,10 +11,10 @@ async function api(path, options = {}) {
   if (res.status === 204) return null;
   const body = await res.json().catch(() => ({}));
   if (res.status === 401 && !path.startsWith("/api/auth/")) {
-    // Session expired or not logged in: send the user to the login screen
+    // Session expired or not logged in: drop back to the logged-out landing
     currentUser = null;
     renderUserBox();
-    renderLogin();
+    route();
     throw new Error(body.error || "authentication required");
   }
   if (!res.ok) throw new Error(body.error || `Request failed (${res.status})`);
@@ -53,7 +53,8 @@ function renderUserBox() {
     await fetch("/api/auth/logout", { method: "POST" });
     currentUser = null;
     renderUserBox();
-    renderLogin();
+    location.hash = "#/";
+    renderLanding();
   };
 }
 
@@ -369,10 +370,27 @@ async function renderDetail(id) {
   });
 }
 
+// ---------- landing (logged-out) ----------
+
+function renderLanding() {
+  view.innerHTML = `
+    <div class="card landing">
+      <h2>Chargeback Tracker</h2>
+      <p class="muted">Internal tool for authorized users.</p>
+      <button id="landingLogin">Log in</button>
+    </div>
+  `;
+  document.getElementById("landingLogin").onclick = () => { location.hash = "#/login"; };
+}
+
 // ---------- router ----------
 
 function route() {
-  if (!currentUser) return renderLogin();
+  if (!currentUser) {
+    // Logged-out visitors see a neutral landing page; the login form lives
+    // behind the "Log in" action at #/login.
+    return location.hash === "#/login" ? renderLogin() : renderLanding();
+  }
   const hash = location.hash || "#/";
   const caseMatch = hash.match(/^#\/case\/(\d+)$/);
   if (hash === "#/new") return renderNew();
@@ -382,7 +400,7 @@ function route() {
 
 window.addEventListener("hashchange", route);
 
-// Boot: restore the session if the cookie is still valid, else show login
+// Boot: restore the session if the cookie is still valid, else show landing
 (async () => {
   try {
     const cfg = await api("/api/auth/config");
