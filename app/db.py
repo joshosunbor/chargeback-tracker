@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -58,6 +59,37 @@ def init_db(app):
     con.close()
 
 
+def seed_admin_from_env(app):
+    """Create the admin account from ADMIN_USERNAME + ADMIN_PASSWORD_HASH if set.
+
+    ADMIN_PASSWORD_HASH must be a werkzeug password *hash*, not a plaintext
+    password — generate it with:
+        python -c "from werkzeug.security import generate_password_hash as g; print(g('YOUR_PASSWORD'))"
+
+    Idempotent: only inserts when the username is absent, so redeploys don't
+    clobber the account. To rotate the password later, use manage.py.
+    """
+    username = os.environ.get("ADMIN_USERNAME")
+    password_hash = os.environ.get("ADMIN_PASSWORD_HASH")
+    if not username or not password_hash:
+        return
+    con = sqlite3.connect(app.config["DATABASE"], timeout=5.0)
+    con.execute("PRAGMA busy_timeout = 5000")
+    try:
+        exists = con.execute(
+            "SELECT 1 FROM users WHERE username = ?", (username,)).fetchone()
+        if not exists:
+            con.execute(
+                "INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",
+                (username, password_hash, utcnow()),
+            )
+            con.commit()
+            app.logger.info("Seeded admin user %r from environment", username)
+    finally:
+        con.close()
+
+
 def init_app(app):
     app.teardown_appcontext(close_db)
     init_db(app)
+    seed_admin_from_env(app)

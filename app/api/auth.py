@@ -20,28 +20,26 @@ def public_user(row):
     return {"id": row["id"], "username": row["username"]}
 
 
-def _user_count(db):
-    return db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-
-
-def signup_open(db):
-    """Registration is allowed when ALLOW_SIGNUP is on, or when no account
-    exists yet so the first (bootstrap) admin can be created."""
-    return current_app.config["ALLOW_SIGNUP"] or _user_count(db) == 0
+def signup_open():
+    """Public registration is allowed only when ALLOW_SIGNUP is enabled. There
+    is deliberately no first-user bootstrap (that would be a race on a public
+    URL); the admin account is seeded from ADMIN_USERNAME / ADMIN_PASSWORD_HASH
+    at startup instead — see app.create_app / db.seed_admin_from_env."""
+    return bool(current_app.config["ALLOW_SIGNUP"])
 
 
 @bp.get("/config")
 def config():
     """Public: lets the login screen decide whether to offer signup."""
-    return jsonify({"signup_open": signup_open(get_db())})
+    return jsonify({"signup_open": signup_open()})
 
 
 @bp.post("/register")
 def register():
-    db = get_db()
-    if not signup_open(db):
+    if not signup_open():
         return jsonify({"error": "registration is closed; ask an admin for an account"}), 403
 
+    db = get_db()
     data = request.get_json(silent=True) or {}
     username = (data.get("username") or "").strip()
     password = data.get("password") or ""

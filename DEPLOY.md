@@ -30,33 +30,50 @@ a persistent Fly **volume** mounted at `/data`, and serves over HTTPS.
    fly secrets set SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
    ```
 
+5. **Seed the admin account.** Signup is closed with no first-user bootstrap,
+   so the admin is provisioned from env vars — a username and a password
+   **hash** (never a plaintext password). Generate the hash locally, then set
+   both as secrets. **Single-quote the hash** — it contains `$` and `:`:
+   ```sh
+   # 1. Generate a hash from your chosen password (uses werkzeug from the venv):
+   .venv/bin/python -c "from werkzeug.security import generate_password_hash as g; print(g('CHOOSE_A_STRONG_PASSWORD'))"
+   # -> prints something like: scrypt:32768:8:1$Xbg...$9f2...
+
+   # 2. Set the admin username + that hash as Fly secrets:
+   fly secrets set ADMIN_USERNAME=admin ADMIN_PASSWORD_HASH='scrypt:32768:8:1$Xbg...$9f2...'
+   ```
+   On the next boot the app seeds this admin if it doesn't already exist. Then
+   log in at the site with that username and the password you chose.
+
 ## Deploy
 
 ```sh
 fly deploy
 ```
 
-Then open the app:
+Then open the app and log in as the seeded admin:
 
 ```sh
 fly open
 ```
 
-## First login
+## Managing users
 
-Signup is **closed** by default (`ALLOW_SIGNUP` unset). Because the volume
-starts empty, the app has zero users, so the **first account you create through
-the login screen becomes the admin** — after that, public registration locks
-automatically.
+Signup stays **closed** (`ALLOW_SIGNUP` unset). To add more users, either:
 
-To add more users later, either:
-
-- Temporarily allow signup: `fly secrets set ALLOW_SIGNUP=true`, register, then
-  `fly secrets unset ALLOW_SIGNUP`; or
 - Create them from the server shell:
   ```sh
   fly ssh console -C "python manage.py create-user <username>"
   ```
+- Or temporarily open signup: `fly secrets set ALLOW_SIGNUP=true`, register in
+  the UI, then `fly secrets unset ALLOW_SIGNUP`.
+
+To **rotate the admin password**:
+```sh
+fly ssh console -C "python manage.py set-password admin --password 'NEW_PASSWORD'"
+```
+The `ADMIN_PASSWORD_HASH` secret only seeds a *missing* account; it won't
+overwrite an existing one on redeploy.
 
 ## Notes & caveats
 

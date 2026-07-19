@@ -1,3 +1,5 @@
+from werkzeug.security import generate_password_hash
+
 from app import create_app
 
 
@@ -6,26 +8,35 @@ def test_api_requires_login(anon_client):
     assert anon_client.post("/api/cases", json={}).status_code == 401
 
 
-def test_signup_closed_after_bootstrap(tmp_path):
-    """With signup closed (the production default), the first account is still
-    allowed to bootstrap an admin, then registration locks."""
+def test_signup_closed_by_default(tmp_path):
+    """Production default: signup is closed with no first-user bootstrap, so a
+    public URL can't be hijacked by whoever registers first."""
     app = create_app(data_dir=tmp_path)  # ALLOW_SIGNUP defaults False
     c = app.test_client()
 
-    # No users yet -> signup is open so the first admin can be created.
-    assert c.get("/api/auth/config").get_json()["signup_open"] is True
-    assert c.post("/api/auth/register",
-                  json={"username": "admin", "password": "secret"}).status_code == 201
-
-    # Now that an account exists, registration is closed.
     assert c.get("/api/auth/config").get_json()["signup_open"] is False
-    res = c.post("/api/auth/register", json={"username": "intruder", "password": "secret"})
+    res = c.post("/api/auth/register", json={"username": "whoever", "password": "secret"})
     assert res.status_code == 403
 
-    # Existing users can still log in.
-    c.post("/api/auth/logout")
+
+def test_admin_seeded_from_env(tmp_path, monkeypatch):
+    """The admin is provisioned from env vars (username + password hash), can
+    log in, and re-seeding on a later boot is idempotent."""
+    monkeypatch.setenv("ADMIN_USERNAME", "root")
+    monkeypatch.setenv("ADMIN_PASSWORD_HASH", generate_password_hash("hunter2"))
+
+    app = create_app(data_dir=tmp_path)
+    c = app.test_client()
     assert c.post("/api/auth/login",
-                  json={"username": "admin", "password": "secret"}).status_code == 200
+                  json={"username": "root", "password": "hunter2"}).status_code == 200
+    assert c.post("/api/auth/login",
+                  json={"username": "root", "password": "wrong"}).status_code == 401
+    assert c.get("/api/auth/config").get_json()["signup_open"] is False
+
+    # Rebuilding the app (e.g. a redeploy) must not duplicate or error.
+    c2 = create_app(data_dir=tmp_path).test_client()
+    assert c2.post("/api/auth/login",
+                   json={"username": "root", "password": "hunter2"}).status_code == 200
 
 
 def test_register_logs_in(client):
@@ -87,6 +98,7 @@ def test_migration_adds_columns_to_existing_db(tmp_path):
     con.close()
 
     app = create_app(data_dir=tmp_path)
+    app.config["ALLOW_SIGNUP"] = True  # need an account to read the API
     c = app.test_client()
     c.post("/api/auth/register", json={"username": "bob", "password": "secret"})
     cases = c.get("/api/cases").get_json()

@@ -8,8 +8,9 @@ primary_region = "iad"
 [env]
   DATA_DIR = "/data"
   SESSION_COOKIE_SECURE = "true"
-  # ALLOW_SIGNUP is intentionally unset -> public signup is closed. The first
-  # account (created through the UI on a fresh volume) bootstraps the admin.
+  # ALLOW_SIGNUP is intentionally unset -> public signup is closed, with no
+  # first-user bootstrap. The admin account is seeded at startup from the
+  # ADMIN_USERNAME / ADMIN_PASSWORD_HASH secrets (set via `fly secrets`).
 
 [http_service]
   internal_port = 8080
