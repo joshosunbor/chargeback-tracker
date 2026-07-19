@@ -57,8 +57,11 @@ function renderUserBox() {
   };
 }
 
+let signupOpen = false;  // set at boot from /api/auth/config
+
 function renderLogin(mode = "login") {
-  const isLogin = mode === "login";
+  // Never show the register form when signup is closed, even if asked.
+  const isLogin = mode === "login" || !signupOpen;
   view.innerHTML = `
     <div class="card auth-card">
       <h2>${isLogin ? "Log in" : "Create account"}</h2>
@@ -68,12 +71,13 @@ function renderLogin(mode = "login") {
         <div class="field"><label>Password</label><input name="password" type="password" required minlength="4"></div>
         <button type="submit">${isLogin ? "Log in" : "Create account"}</button>
       </form>
-      <p class="switch">${isLogin
+      ${!signupOpen ? "" : `<p class="switch">${isLogin
         ? `No account yet? <a id="switchMode">Create one</a>`
-        : `Already have an account? <a id="switchMode">Log in</a>`}</p>
+        : `Already have an account? <a id="switchMode">Log in</a>`}</p>`}
     </div>
   `;
-  document.getElementById("switchMode").onclick = () => renderLogin(isLogin ? "register" : "login");
+  const switchLink = document.getElementById("switchMode");
+  if (switchLink) switchLink.onclick = () => renderLogin(isLogin ? "register" : "login");
   document.getElementById("authForm").onsubmit = async (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
@@ -329,6 +333,12 @@ window.addEventListener("hashchange", route);
 
 // Boot: restore the session if the cookie is still valid, else show login
 (async () => {
+  try {
+    const cfg = await api("/api/auth/config");
+    signupOpen = !!cfg.signup_open;
+  } catch {
+    signupOpen = false;
+  }
   try {
     currentUser = await api("/api/auth/me");
   } catch {

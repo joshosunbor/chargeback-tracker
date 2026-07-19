@@ -1,6 +1,6 @@
 import sqlite3
 
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, current_app, jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..db import get_db, utcnow
@@ -20,8 +20,28 @@ def public_user(row):
     return {"id": row["id"], "username": row["username"]}
 
 
+def _user_count(db):
+    return db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+
+
+def signup_open(db):
+    """Registration is allowed when ALLOW_SIGNUP is on, or when no account
+    exists yet so the first (bootstrap) admin can be created."""
+    return current_app.config["ALLOW_SIGNUP"] or _user_count(db) == 0
+
+
+@bp.get("/config")
+def config():
+    """Public: lets the login screen decide whether to offer signup."""
+    return jsonify({"signup_open": signup_open(get_db())})
+
+
 @bp.post("/register")
 def register():
+    db = get_db()
+    if not signup_open(db):
+        return jsonify({"error": "registration is closed; ask an admin for an account"}), 403
+
     data = request.get_json(silent=True) or {}
     username = (data.get("username") or "").strip()
     password = data.get("password") or ""
@@ -30,7 +50,6 @@ def register():
     if len(password) < 4:
         return jsonify({"error": "password must be at least 4 characters"}), 400
 
-    db = get_db()
     try:
         cur = db.execute(
             "INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",

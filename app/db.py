@@ -12,9 +12,12 @@ def utcnow():
 
 def get_db():
     if "db" not in g:
-        g.db = sqlite3.connect(current_app.config["DATABASE"])
+        # busy timeout lets concurrent gunicorn workers wait out a brief write
+        # lock instead of erroring immediately with "database is locked".
+        g.db = sqlite3.connect(current_app.config["DATABASE"], timeout=5.0)
         g.db.row_factory = sqlite3.Row
         g.db.execute("PRAGMA foreign_keys = ON")
+        g.db.execute("PRAGMA busy_timeout = 5000")
     return g.db
 
 
@@ -37,8 +40,14 @@ _COLUMN_MIGRATIONS = {
 
 def init_db(app):
     schema = (Path(__file__).parent / "schema.sql").read_text()
-    con = sqlite3.connect(app.config["DATABASE"])
-    con.execute("PRAGMA journal_mode = WAL")
+    con = sqlite3.connect(app.config["DATABASE"], timeout=5.0)
+    con.execute("PRAGMA busy_timeout = 5000")
+    # WAL mode is persisted in the database file, so only switch when needed.
+    # Switching requires an exclusive lock; skipping the no-op switch avoids
+    # racing another process that already set it. Run gunicorn with --preload
+    # so this initialization happens once in the master, not per worker.
+    if con.execute("PRAGMA journal_mode").fetchone()[0].lower() != "wal":
+        con.execute("PRAGMA journal_mode = WAL")
     con.executescript(schema)
     for table, columns in _COLUMN_MIGRATIONS.items():
         existing = {row[1] for row in con.execute(f"PRAGMA table_info({table})")}

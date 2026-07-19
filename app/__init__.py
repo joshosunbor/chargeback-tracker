@@ -1,3 +1,4 @@
+import os
 import secrets
 from pathlib import Path
 
@@ -6,8 +7,17 @@ from flask import Flask, jsonify, request, send_from_directory
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _env_bool(name, default=False):
+    val = os.environ.get(name)
+    if val is None:
+        return default
+    return val.strip().lower() in ("1", "true", "yes", "on")
+
+
 def create_app(data_dir=None):
-    data_dir = Path(data_dir) if data_dir else ROOT / "data"
+    # DATA_DIR lets a PaaS point storage at a mounted persistent volume
+    # (e.g. /data) so the SQLite db and uploads survive redeploys.
+    data_dir = Path(data_dir or os.environ.get("DATA_DIR") or ROOT / "data")
     attachments_dir = data_dir / "attachments"
     attachments_dir.mkdir(parents=True, exist_ok=True)
 
@@ -16,11 +26,27 @@ def create_app(data_dir=None):
     app.config["ATTACHMENTS_DIR"] = str(attachments_dir)
     app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 MB upload cap
 
-    # Session-signing key persisted under data/ so logins survive restarts
-    secret_file = data_dir / "secret_key"
-    if not secret_file.exists():
-        secret_file.write_bytes(secrets.token_bytes(32))
-    app.secret_key = secret_file.read_bytes()
+    # Public registration is closed by default; a fresh install with no users
+    # yet is always allowed to create the first (bootstrap) account. See auth.py.
+    app.config["ALLOW_SIGNUP"] = _env_bool("ALLOW_SIGNUP", default=False)
+
+    # Harden the session cookie. SESSION_COOKIE_SECURE must be on in production
+    # (HTTPS) so the login cookie is never sent over plain HTTP; keep it off for
+    # local http:// dev. HttpOnly + SameSite=Lax are safe defaults everywhere.
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_SECURE"] = _env_bool("SESSION_COOKIE_SECURE", default=False)
+
+    # Prefer an injected SECRET_KEY (required on ephemeral PaaS filesystems, or
+    # logins break on every redeploy). Fall back to a persisted key for local dev.
+    secret = os.environ.get("SECRET_KEY")
+    if secret:
+        app.secret_key = secret.encode()
+    else:
+        secret_file = data_dir / "secret_key"
+        if not secret_file.exists():
+            secret_file.write_bytes(secrets.token_bytes(32))
+        app.secret_key = secret_file.read_bytes()
 
     from . import db
 

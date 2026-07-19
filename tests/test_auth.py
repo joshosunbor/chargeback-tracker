@@ -1,6 +1,31 @@
+from app import create_app
+
+
 def test_api_requires_login(anon_client):
     assert anon_client.get("/api/cases").status_code == 401
     assert anon_client.post("/api/cases", json={}).status_code == 401
+
+
+def test_signup_closed_after_bootstrap(tmp_path):
+    """With signup closed (the production default), the first account is still
+    allowed to bootstrap an admin, then registration locks."""
+    app = create_app(data_dir=tmp_path)  # ALLOW_SIGNUP defaults False
+    c = app.test_client()
+
+    # No users yet -> signup is open so the first admin can be created.
+    assert c.get("/api/auth/config").get_json()["signup_open"] is True
+    assert c.post("/api/auth/register",
+                  json={"username": "admin", "password": "secret"}).status_code == 201
+
+    # Now that an account exists, registration is closed.
+    assert c.get("/api/auth/config").get_json()["signup_open"] is False
+    res = c.post("/api/auth/register", json={"username": "intruder", "password": "secret"})
+    assert res.status_code == 403
+
+    # Existing users can still log in.
+    c.post("/api/auth/logout")
+    assert c.post("/api/auth/login",
+                  json={"username": "admin", "password": "secret"}).status_code == 200
 
 
 def test_register_logs_in(client):

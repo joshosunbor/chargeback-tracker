@@ -5,7 +5,11 @@ from app import create_app
 
 @pytest.fixture
 def app(tmp_path):
-    return create_app(data_dir=tmp_path)
+    app = create_app(data_dir=tmp_path)
+    # Most tests register several accounts; open signup so they can. Closed
+    # signup has its own dedicated test in test_auth.py.
+    app.config["ALLOW_SIGNUP"] = True
+    return app
 
 
 @pytest.fixture
