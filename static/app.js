@@ -373,12 +373,48 @@ async function renderDetail(id) {
 // ---------- landing (logged-out) ----------
 
 function renderLanding() {
+  document.body.classList.add("logged-out");
   view.innerHTML = `
-    <div class="card landing">
-      <h2>Chargeback Tracker</h2>
-      <p class="muted">Internal tool for authorized users.</p>
-      <button id="landingLogin">Log in</button>
-    </div>
+    <section class="landing-hero">
+      <h1>Chargeback Tracker</h1>
+      <p class="tagline">A demo app for tracking chargeback cases from first dispute through to resolution.</p>
+      <button class="btn-primary" id="landingLogin">Log in</button>
+    </section>
+
+    <section class="landing-section">
+      <h2>What it does</h2>
+      <div class="feature-grid">
+        <div class="feature">
+          <div class="ico" aria-hidden="true">🗂️</div>
+          <h3>Case tracking</h3>
+          <p>Record chargeback cases with merchant, customer, amount, currency, reason code, and the dates that matter.</p>
+        </div>
+        <div class="feature">
+          <div class="ico" aria-hidden="true">🔄</div>
+          <h3>Status workflow</h3>
+          <p>Move cases through new → under review → represented → won, lost, or accepted, with a full audit history of every change.</p>
+        </div>
+        <div class="feature">
+          <div class="ico" aria-hidden="true">📥</div>
+          <h3>CSV import</h3>
+          <p>Bulk-load cases from a spreadsheet export, with a per-row summary of what was created, skipped, or rejected.</p>
+        </div>
+        <div class="feature">
+          <div class="ico" aria-hidden="true">🔐</div>
+          <h3>Role-based admin</h3>
+          <p>Everyone signs in, and access is scoped by role — admin accounts unlock privileged actions like importing.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-section">
+      <div class="landing-about">
+        <h2>About this project</h2>
+        <p>This is a personal project I built to test out product and engineering ideas end-to-end — a small, self-contained app rather than a real system. The backend is Flask + SQLite with a vanilla-JavaScript frontend, deployed on Fly.io. Everything you see runs on synthetic sample data and isn't connected to any real payment system.</p>
+      </div>
+    </section>
+
+    <p class="landing-footer">Synthetic sample data · Personal project</p>
   `;
   document.getElementById("landingLogin").onclick = () => { location.hash = "#/login"; };
 }
@@ -386,9 +422,11 @@ function renderLanding() {
 // ---------- router ----------
 
 function route() {
+  // Drives the logged-out header restyle (see .logged-out rules in style.css).
+  document.body.classList.toggle("logged-out", !currentUser);
   if (!currentUser) {
-    // Logged-out visitors see a neutral landing page; the login form lives
-    // behind the "Log in" action at #/login.
+    // Logged-out visitors see a landing page; the login form lives behind the
+    // "Log in" action at #/login.
     return location.hash === "#/login" ? renderLogin() : renderLanding();
   }
   const hash = location.hash || "#/";
