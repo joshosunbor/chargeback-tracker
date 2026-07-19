@@ -57,3 +57,5 @@ ul.timeline li, ul.plain li { padding: 0.5rem 0; border-bottom: 1px solid #eef0f
 .row textarea { flex: 1; padding: 0.5rem; border: 1px solid #cbd2dc; border-radius: 6px; resize: vertical; }
 .error { background: #fee2e2; color: #b91c1c; padding: 0.5rem 0.8rem; border-radius: 6px; margin-bottom: 1rem; }
 .empty { color: #667085; padding: 1rem 0; }
+.import-summary { border-left: 3px solid #2563eb; }
+.import-summary ul.plain { margin-top: 0.5rem; max-height: 220px; overflow-y: auto; }

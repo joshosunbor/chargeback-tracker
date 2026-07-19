@@ -28,6 +28,21 @@ def client(app):
 
 
 @pytest.fixture
+def admin_client(app):
+    """Test client logged in as an admin user."""
+    import sqlite3
+
+    c = app.test_client()
+    assert c.post("/api/auth/register",
+                  json={"username": "admin", "password": "secret"}).status_code == 201
+    con = sqlite3.connect(app.config["DATABASE"])
+    con.execute("UPDATE users SET is_admin = 1 WHERE username = 'admin'")
+    con.commit()
+    con.close()
+    return c
+
+
+@pytest.fixture
 def case(client):
     """A freshly created case, returned as its JSON dict."""
     res = client.post("/api/cases", json={

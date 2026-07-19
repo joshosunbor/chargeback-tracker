@@ -107,6 +107,8 @@ async function renderList() {
 
   const cases = await api(`/api/cases?${params}`);
 
+  const isAdmin = !!(currentUser && currentUser.is_admin);
+
   view.innerHTML = `
     <div class="toolbar">
       <input id="search" type="search" placeholder="Search case #, merchant, customer…" value="${esc(q)}">
@@ -115,8 +117,11 @@ async function renderList() {
         ${statusOptions(status)}
       </select>
       <div class="spacer"></div>
+      ${isAdmin ? `<button id="importCsv" class="secondary">Import CSV</button>
+      <input type="file" id="csvInput" accept=".csv,text/csv" style="display:none">` : ""}
       <button id="newCase">+ New case</button>
     </div>
+    <div id="importSummary"></div>
     ${cases.length === 0 ? `<p class="empty">No cases found.</p>` : `
     <table>
       <thead><tr><th>Case #</th><th>Merchant</th><th>Customer</th><th>Amount</th><th>Reason</th><th>Status</th><th>Due</th></tr></thead>
@@ -144,6 +149,52 @@ async function renderList() {
   view.querySelectorAll("tbody tr").forEach((tr) => {
     tr.onclick = () => { location.hash = `#/case/${tr.dataset.id}`; };
   });
+
+  if (isAdmin) {
+    const importBtn = document.getElementById("importCsv");
+    const csvInput = document.getElementById("csvInput");
+    importBtn.onclick = () => csvInput.click();
+    csvInput.onchange = async () => {
+      if (!csvInput.files.length) return;
+      const form = new FormData();
+      form.append("file", csvInput.files[0]);
+      importBtn.disabled = true;
+      importBtn.textContent = "Importing…";
+      try {
+        const summary = await api("/api/cases/import", { method: "POST", body: form });
+        // Re-render the list to show new rows, then surface the summary above it.
+        pendingImportSummary = summary;
+        await renderList();
+      } catch (err) {
+        showError(err);
+      } finally {
+        csvInput.value = "";
+      }
+    };
+  }
+
+  // Show a one-shot import summary after a refresh triggered by an upload.
+  if (pendingImportSummary) {
+    renderImportSummary(pendingImportSummary);
+    pendingImportSummary = null;
+  }
+}
+
+let pendingImportSummary = null;
+
+function renderImportSummary(res) {
+  const el = document.getElementById("importSummary");
+  if (!el) return;
+  const errs = res.errors || [];
+  el.innerHTML = `
+    <div class="card import-summary">
+      <strong>Import complete.</strong>
+      Created ${res.created}, skipped ${res.skipped} (duplicate case #), ${errs.length} error(s).
+      ${errs.length ? `<ul class="plain">${errs.map((e) =>
+        `<li class="muted">Row ${e.row}: ${esc(e.error)}</li>`).join("")}</ul>` : ""}
+      <div style="margin-top:0.5rem"><button id="dismissImport" class="secondary">Dismiss</button></div>
+    </div>`;
+  document.getElementById("dismissImport").onclick = () => { el.innerHTML = ""; };
 }
 
 // ---------- new case form ----------

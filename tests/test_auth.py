@@ -27,8 +27,9 @@ def test_admin_seeded_from_env(tmp_path, monkeypatch):
 
     app = create_app(data_dir=tmp_path)
     c = app.test_client()
-    assert c.post("/api/auth/login",
-                  json={"username": "root", "password": "hunter2"}).status_code == 200
+    login = c.post("/api/auth/login", json={"username": "root", "password": "hunter2"})
+    assert login.status_code == 200
+    assert login.get_json()["is_admin"] is True  # the seeded admin is an admin
     assert c.post("/api/auth/login",
                   json={"username": "root", "password": "wrong"}).status_code == 401
     assert c.get("/api/auth/config").get_json()["signup_open"] is False
@@ -43,6 +44,7 @@ def test_register_logs_in(client):
     me = client.get("/api/auth/me")
     assert me.status_code == 200
     assert me.get_json()["username"] == "alice"
+    assert me.get_json()["is_admin"] is False  # registered users are not admins
 
 
 def test_register_validates(anon_client):

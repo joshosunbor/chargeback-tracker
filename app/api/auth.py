@@ -17,7 +17,7 @@ def current_user():
 
 
 def public_user(row):
-    return {"id": row["id"], "username": row["username"]}
+    return {"id": row["id"], "username": row["username"], "is_admin": bool(row["is_admin"])}
 
 
 def signup_open():
@@ -57,7 +57,7 @@ def register():
         return jsonify({"error": f"username '{username}' is already taken"}), 409
     db.commit()
     session["user_id"] = cur.lastrowid
-    return jsonify({"id": cur.lastrowid, "username": username}), 201
+    return jsonify({"id": cur.lastrowid, "username": username, "is_admin": False}), 201
 
 
 @bp.post("/login")

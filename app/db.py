@@ -36,6 +36,7 @@ _COLUMN_MIGRATIONS = {
     "case_history": {"user_id": "INTEGER REFERENCES users(id)"},
     "notes": {"user_id": "INTEGER REFERENCES users(id)"},
     "attachments": {"user_id": "INTEGER REFERENCES users(id)"},
+    "users": {"is_admin": "INTEGER NOT NULL DEFAULT 0"},
 }
 
 
@@ -76,15 +77,21 @@ def seed_admin_from_env(app):
     con = sqlite3.connect(app.config["DATABASE"], timeout=5.0)
     con.execute("PRAGMA busy_timeout = 5000")
     try:
-        exists = con.execute(
-            "SELECT 1 FROM users WHERE username = ?", (username,)).fetchone()
-        if not exists:
+        row = con.execute(
+            "SELECT is_admin FROM users WHERE username = ?", (username,)).fetchone()
+        if row is None:
             con.execute(
-                "INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",
+                "INSERT INTO users (username, password_hash, created_at, is_admin) "
+                "VALUES (?, ?, ?, 1)",
                 (username, password_hash, utcnow()),
             )
             con.commit()
             app.logger.info("Seeded admin user %r from environment", username)
+        elif not row[0]:
+            # Admin already exists from before is_admin was introduced — promote it.
+            con.execute("UPDATE users SET is_admin = 1 WHERE username = ?", (username,))
+            con.commit()
+            app.logger.info("Promoted existing user %r to admin", username)
     finally:
         con.close()
 

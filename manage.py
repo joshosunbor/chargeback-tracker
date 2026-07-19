@@ -36,15 +36,15 @@ def create_user(args):
     con = _connect()
     try:
         con.execute(
-            "INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",
-            (args.username, generate_password_hash(password), utcnow()),
+            "INSERT INTO users (username, password_hash, created_at, is_admin) VALUES (?, ?, ?, ?)",
+            (args.username, generate_password_hash(password), utcnow(), 1 if args.admin else 0),
         )
         con.commit()
     except sqlite3.IntegrityError:
         sys.exit(f"error: username '{args.username}' already exists")
     finally:
         con.close()
-    print(f"created user '{args.username}'")
+    print(f"created {'admin' if args.admin else 'user'} '{args.username}'")
 
 
 def set_password(args):
@@ -67,13 +67,15 @@ def set_password(args):
 
 def list_users(args):
     con = _connect()
-    rows = con.execute("SELECT id, username, created_at FROM users ORDER BY id").fetchall()
+    rows = con.execute(
+        "SELECT id, username, created_at, is_admin FROM users ORDER BY id").fetchall()
     con.close()
     if not rows:
         print("(no users yet)")
         return
     for r in rows:
-        print(f"  {r['id']:>3}  {r['username']:<20}  {r['created_at']}")
+        tag = "admin" if r["is_admin"] else ""
+        print(f"  {r['id']:>3}  {r['username']:<20}  {r['created_at']}  {tag}")
 
 
 def main():
@@ -83,6 +85,7 @@ def main():
     p_create = sub.add_parser("create-user", help="create a login account")
     p_create.add_argument("username")
     p_create.add_argument("--password", help="set non-interactively (else prompted)")
+    p_create.add_argument("--admin", action="store_true", help="grant admin rights")
     p_create.set_defaults(func=create_user)
 
     p_set = sub.add_parser("set-password", help="reset an account's password")

@@ -160,6 +160,10 @@ def import_cases():
     """Bulk-create cases from an uploaded CSV. Rows with a case_number that
     already exists are skipped; per-row problems are reported without aborting
     the whole import. Returns a summary: created / skipped / errors."""
+    user = current_user()
+    if not user["is_admin"]:
+        return error("admin access required to import", 403)
+
     file = request.files.get("file")
     if file is None or not file.filename:
         return error("multipart field 'file' (a .csv) is required")
@@ -179,7 +183,7 @@ def import_cases():
 
     db = get_db()
     now = utcnow()
-    user_id = current_user()["id"]
+    user_id = user["id"]
     created, skipped, errors = 0, 0, []
 
     # Row 1 is the header, so the first data row is line 2.
