@@ -1,4 +1,7 @@
+import csv
+import io
 import sqlite3
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from flask import Blueprint, jsonify, request
 
@@ -19,6 +22,29 @@ EDITABLE_FIELDS = [
 
 def error(message, code=400):
     return jsonify({"error": message}), code
+
+
+def insert_case(db, fields, status, user_id, now, history_note):
+    """Insert a case row plus its initial history row. Shared by the JSON
+    create endpoint and the CSV importer. Raises sqlite3.IntegrityError on a
+    duplicate case_number — callers decide whether that's an error or a skip."""
+    cur = db.execute(
+        """INSERT INTO cases (case_number, merchant, customer, amount_cents, currency,
+                              reason_code, status, received_date, due_date, resolved_date,
+                              created_at, updated_at, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (fields["case_number"], fields["merchant"], fields.get("customer"),
+         fields["amount_cents"], fields.get("currency") or "USD", fields.get("reason_code"),
+         status, fields.get("received_date"), fields.get("due_date"),
+         fields.get("resolved_date"), now, now, user_id),
+    )
+    case_id = cur.lastrowid
+    db.execute(
+        "INSERT INTO case_history (case_id, old_status, new_status, note, created_at, user_id) "
+        "VALUES (?, NULL, ?, ?, ?, ?)",
+        (case_id, status, history_note, now, user_id),
+    )
+    return case_id
 
 
 def validate(data, creating):
@@ -73,29 +99,116 @@ def create_case():
     if not fields["currency"]:
         fields["currency"] = "USD"
 
-    user_id = current_user()["id"]
     try:
-        cur = db.execute(
-            """INSERT INTO cases (case_number, merchant, customer, amount_cents, currency,
-                                  reason_code, status, received_date, due_date, resolved_date,
-                                  created_at, updated_at, created_by)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (fields["case_number"], fields["merchant"], fields["customer"],
-             fields["amount_cents"], fields["currency"], fields["reason_code"],
-             status, fields["received_date"], fields["due_date"],
-             fields["resolved_date"], now, now, user_id),
-        )
+        case_id = insert_case(db, fields, status, current_user()["id"], now, "Case created")
     except sqlite3.IntegrityError:
         db.rollback()
         return error(f"case_number '{fields['case_number']}' already exists", 409)
 
-    case_id = cur.lastrowid
-    db.execute(
-        "INSERT INTO case_history (case_id, old_status, new_status, note, created_at, user_id) VALUES (?, NULL, ?, 'Case created', ?, ?)",
-        (case_id, status, now, user_id),
-    )
     db.commit()
     return jsonify(dict(case_or_none(db, case_id))), 201
+
+
+# Columns accepted in an import CSV (header names, case-insensitive). amount is
+# in dollars (e.g. 45.99) and converted to integer cents.
+IMPORT_COLUMNS = [
+    "case_number", "merchant", "customer", "amount", "currency",
+    "reason_code", "status", "received_date", "due_date", "resolved_date",
+]
+
+
+def _parse_amount_to_cents(raw):
+    s = (raw or "").strip().replace(",", "").lstrip("$").strip()
+    if not s:
+        raise ValueError("amount is required")
+    try:
+        return int((Decimal(s) * 100).to_integral_value(rounding=ROUND_HALF_UP))
+    except InvalidOperation:
+        raise ValueError(f"amount '{raw}' is not a valid number")
+
+
+def _row_to_fields(row):
+    """Validate one normalized CSV row and return (fields, status). Raises
+    ValueError with a human-readable message on any problem."""
+    case_number = (row.get("case_number") or "").strip()
+    merchant = (row.get("merchant") or "").strip()
+    if not case_number:
+        raise ValueError("case_number is required")
+    if not merchant:
+        raise ValueError("merchant is required")
+
+    status = (row.get("status") or "new").strip().lower()
+    if status not in STATUSES:
+        raise ValueError(f"invalid status '{status}' (expected one of {', '.join(STATUSES)})")
+
+    fields = {
+        "case_number": case_number,
+        "merchant": merchant,
+        "customer": (row.get("customer") or "").strip() or None,
+        "amount_cents": _parse_amount_to_cents(row.get("amount")),
+        "currency": (row.get("currency") or "USD").strip().upper() or "USD",
+        "reason_code": (row.get("reason_code") or "").strip() or None,
+        "received_date": (row.get("received_date") or "").strip() or None,
+        "due_date": (row.get("due_date") or "").strip() or None,
+        "resolved_date": (row.get("resolved_date") or "").strip() or None,
+    }
+    return fields, status
+
+
+@bp.post("/import")
+def import_cases():
+    """Bulk-create cases from an uploaded CSV. Rows with a case_number that
+    already exists are skipped; per-row problems are reported without aborting
+    the whole import. Returns a summary: created / skipped / errors."""
+    file = request.files.get("file")
+    if file is None or not file.filename:
+        return error("multipart field 'file' (a .csv) is required")
+
+    try:
+        text = file.read().decode("utf-8-sig")  # utf-8-sig strips a BOM if present
+    except UnicodeDecodeError:
+        return error("file must be UTF-8 encoded text")
+
+    reader = csv.DictReader(io.StringIO(text))
+    if not reader.fieldnames:
+        return error("CSV has no header row")
+    headers = {(h or "").strip().lower() for h in reader.fieldnames}
+    missing = {"case_number", "merchant", "amount"} - headers
+    if missing:
+        return error(f"CSV is missing required column(s): {', '.join(sorted(missing))}")
+
+    db = get_db()
+    now = utcnow()
+    user_id = current_user()["id"]
+    created, skipped, errors = 0, 0, []
+
+    # Row 1 is the header, so the first data row is line 2.
+    for line_no, raw_row in enumerate(reader, start=2):
+        row = {(k or "").strip().lower(): v for k, v in raw_row.items()}
+        try:
+            fields, status = _row_to_fields(row)
+        except ValueError as e:
+            errors.append({"row": line_no, "error": str(e)})
+            continue
+
+        if db.execute("SELECT 1 FROM cases WHERE case_number = ?",
+                      (fields["case_number"],)).fetchone():
+            skipped += 1
+            continue
+        try:
+            insert_case(db, fields, status, user_id, now, "Imported from CSV")
+            created += 1
+        except sqlite3.IntegrityError:
+            # Duplicate within the same file (not yet committed) lands here.
+            skipped += 1
+
+    db.commit()
+    return jsonify({
+        "created": created,
+        "skipped": skipped,
+        "errors": errors,
+        "total": created + skipped + len(errors),
+    })
 
 
 @bp.get("/<int:case_id>")

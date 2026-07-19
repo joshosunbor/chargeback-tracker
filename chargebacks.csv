@@ -1,0 +1,51 @@
+case_number,merchant,customer,amount,currency,reason_code,status,received_date,due_date,resolved_date
+CB-2026-1001,Blue Otter Toys,Elena Khan,1539.99,USD,4837,under_review,2026-04-11,2026-05-11,
+CB-2026-1002,Driftwood Apparel,Yuki Kapoor,1376.90,EUR,13.1,represented,2026-06-13,2026-07-04,
+CB-2026-1003,Quillbook Media,Sofia Nguyen,2293.74,GBP,11.3,new,2026-01-17,2026-03-03,
+CB-2026-1004,Verdant Grocers,Mateo Kapoor,909.85,USD,13.3,represented,2026-05-27,2026-06-26,
+CB-2026-1005,Saffron Kitchen,Chloe Okafor,1305.83,USD,13.6,under_review,2026-04-14,2026-05-05,
+CB-2026-1006,Pinnacle Sports,Sofia Tanaka,566.80,USD,12.5,won,2026-06-29,2026-07-20,2026-08-27
+CB-2026-1007,Solstice Wellness,Sofia Zhang,2355.56,EUR,13.2,under_review,2026-03-22,2026-04-12,
+CB-2026-1008,Driftwood Apparel,Mateo Khan,2373.42,USD,4853,new,2026-05-21,2026-06-11,
+CB-2026-1009,Cascade Bikes,Chloe Nguyen,1511.80,CAD,4853,new,2026-05-09,2026-06-23,
+CB-2026-1010,Thistle & Thorn,Aisha Bennett,1571.00,USD,10.4,won,2026-02-16,2026-03-18,2026-04-16
+CB-2026-1011,Vantage Electronics,Liam Kapoor,231.24,USD,13.2,represented,2026-03-28,2026-05-12,
+CB-2026-1012,Vantage Electronics,Elena Rossi,563.75,USD,10.4,lost,2026-01-31,2026-03-17,2026-02-27
+CB-2026-1013,Copperleaf Coffee,,705.81,EUR,11.3,represented,2026-01-23,2026-02-22,
+CB-2026-1014,Quillbook Media,Wei Zhang,1804.89,USD,13.3,won,2026-01-28,2026-03-14,2026-03-16
+CB-2026-1015,Ember Candle Co,Hannah Rivera,473.76,USD,11.3,won,2025-12-29,2026-01-28,2026-01-08
+CB-2026-1016,Saffron Kitchen,Maria Petrov,1835.09,USD,10.4,new,2026-03-14,2026-04-13,
+CB-2026-1017,Saffron Kitchen,Liam Okafor,954.88,USD,13.7,lost,2026-02-21,2026-03-14,2026-03-04
+CB-2026-1018,Quillbook Media,Mateo Torres,1602.74,CAD,11.3,under_review,2026-03-09,2026-04-08,
+CB-2026-1019,Cobalt Audio,Liam Larsen,2378.07,CAD,4853,represented,2026-04-07,2026-05-07,
+CB-2026-1020,Quillbook Media,,74.78,GBP,10.4,won,2026-02-17,2026-04-03,2026-03-25
+CB-2026-1021,Nimbus Outfitters,Maria Kapoor,619.65,GBP,4853,under_review,2026-07-04,2026-07-25,
+CB-2026-1022,Vantage Electronics,Nadia Adeyemi,1561.74,USD,13.7,under_review,2026-01-03,2026-02-17,
+CB-2026-1023,Northwind Pet Supply,Fatima Rossi,572.27,USD,13.6,new,2026-02-12,2026-03-05,
+CB-2026-1024,Lumen Lighting,Mateo Torres,1733.87,USD,13.1,lost,2026-04-22,2026-05-22,2026-05-31
+CB-2026-1025,Ironclad Tools,Chloe Torres,2128.74,USD,13.1,new,2026-03-18,2026-05-02,
+CB-2026-1026,Ironclad Tools,Lucas Larsen,517.80,USD,13.2,under_review,2026-01-08,2026-02-22,
+CB-2026-1027,Ember Candle Co,Hannah Rivera,953.07,GBP,13.7,lost,2026-06-14,2026-07-05,2026-06-25
+CB-2026-1028,Marigold Home,Ibrahim Adeyemi,1607.99,USD,13.6,under_review,2026-01-07,2026-01-28,
+CB-2026-1029,Solstice Wellness,Hannah Larsen,1116.34,GBP,11.3,new,2026-01-03,2026-02-17,
+CB-2026-1030,Nimbus Outfitters,Sofia Zhang,2485.60,EUR,11.3,lost,2026-03-04,2026-04-03,2026-04-27
+CB-2026-1031,Pinnacle Sports,Diego Zhang,567.98,USD,13.2,lost,2026-05-27,2026-06-17,2026-07-10
+CB-2026-1032,Saffron Kitchen,Hannah Tanaka,2453.69,USD,4834,new,2026-06-07,2026-07-07,
+CB-2026-1033,Thistle & Thorn,Wei Bennett,2431.08,EUR,4837,accepted,2026-05-21,2026-06-20,2026-07-12
+CB-2026-1034,Northwind Pet Supply,Lucas Torres,929.59,USD,13.7,lost,2026-04-26,2026-06-10,2026-05-22
+CB-2026-1035,Harbor & Pine,Kofi Nguyen,357.83,USD,4837,won,2026-04-19,2026-05-19,2026-06-12
+CB-2026-1036,Ember Candle Co,Diego Murphy,912.75,GBP,13.7,under_review,2026-05-29,2026-07-13,
+CB-2026-1037,Pinnacle Sports,Priya Adeyemi,261.14,USD,13.6,lost,2026-02-07,2026-02-28,2026-02-21
+CB-2026-1038,Thistle & Thorn,Aisha Rivera,1085.57,USD,4855,lost,2026-03-21,2026-04-20,2026-04-18
+CB-2026-1039,Solstice Wellness,Sofia Kapoor,1007.95,USD,4837,new,2026-01-16,2026-02-06,
+CB-2026-1040,Ironclad Tools,James Rivera,1146.81,USD,12.5,represented,2026-06-04,2026-07-04,
+CB-2026-1041,Solstice Wellness,Fatima Khan,1920.35,USD,4837,under_review,2026-01-02,2026-02-01,
+CB-2026-1042,Copperleaf Coffee,Sofia Murphy,687.83,USD,13.1,accepted,2026-01-25,2026-02-15,2026-02-05
+CB-2026-1043,Thistle & Thorn,Mateo Rivera,250.24,USD,4834,represented,2026-01-20,2026-03-06,
+CB-2026-1044,Ember Candle Co,Nadia Khan,497.56,GBP,10.4,under_review,2026-04-02,2026-05-02,
+CB-2026-1045,Ironclad Tools,Mateo Adeyemi,1781.48,USD,4855,accepted,2026-02-19,2026-04-05,2026-03-25
+CB-2026-1046,Vantage Electronics,Lucas Rossi,1574.39,EUR,13.6,under_review,2026-05-31,2026-06-30,
+CB-2026-1047,Cobalt Audio,Lucas Bennett,177.33,EUR,4837,new,2026-06-24,2026-08-08,
+CB-2026-1048,Ember Candle Co,Liam Torres,2315.02,GBP,13.3,accepted,2026-04-06,2026-04-27,2026-05-06
+CB-2026-1049,Nimbus Outfitters,Rohan Torres,338.31,USD,11.3,accepted,2026-03-08,2026-03-29,2026-04-08
+CB-2026-1050,Harbor & Pine,Maria Zhang,174.43,USD,4837,won,2026-05-07,2026-06-21,2026-06-25
