@@ -1,31 +1,31 @@
-# Fly.io config for the Chargeback Tracker.
-# `app` must be globally unique — `fly launch` will set/replace it, or edit here.
-app = "chargeback-tracker"
-primary_region = "iad"
+# fly.toml app configuration file generated for chargeback-tracker on 2026-07-19T21:55:01+01:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'chargeback-tracker'
+primary_region = 'iad'
 
 [build]
-
 [env]
-  DATA_DIR = "/data"
-  SESSION_COOKIE_SECURE = "true"
-  # ALLOW_SIGNUP is intentionally unset -> public signup is closed, with no
-  # first-user bootstrap. The admin account is seeded at startup from the
-  # ADMIN_USERNAME / ADMIN_PASSWORD_HASH secrets (set via `fly secrets`).
+  DATA_DIR = '/data'
+  SESSION_COOKIE_SECURE = 'true'
+  # ALLOW_SIGNUP is intentionally unset -> public signup is closed. The admin
+  # is seeded at startup from the ADMIN_USERNAME / ADMIN_PASSWORD_HASH secrets.
+
+[[mounts]]
+  source = 'data'
+  destination = '/data'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = "stop"
+  auto_stop_machines = 'stop'
   auto_start_machines = true
-  # Keep at least 1 machine: a Fly volume attaches to a single machine, and
-  # SQLite must not be split across instances. Do not `scale count` above 1.
+  # Keep at 1: the Fly volume attaches to a single machine and SQLite must not
+  # be split across instances. Do not `fly scale count` above 1.
   min_machines_running = 1
 
-# Persistent storage for the SQLite db and uploaded attachments.
-[mounts]
-  source = "data"
-  destination = "/data"
-
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "512mb"
+  size = 'shared-cpu-1x'
+  memory = '512mb'
