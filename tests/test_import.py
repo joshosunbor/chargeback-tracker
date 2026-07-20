@@ -104,6 +104,24 @@ def test_sample_csv_grants_guest_no_upload(guest_client):
     assert res.status_code == 403
 
 
+def test_import_csv_cli(tmp_path, monkeypatch):
+    """manage.py import-csv loads a file straight into the database."""
+    import sqlite3
+
+    import manage
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    manage.import_csv(type("Args", (), {"path": str(REPO_ROOT / "chargebacks.csv")})())
+
+    con = sqlite3.connect(tmp_path / "app.db")
+    count = con.execute("SELECT COUNT(*) FROM cases").fetchone()[0]
+    hist = con.execute(
+        "SELECT COUNT(*) FROM case_history WHERE note = 'Imported from CSV (CLI)'").fetchone()[0]
+    con.close()
+    assert count == 50
+    assert hist == 50  # one history row per imported case
+
+
 def test_import_sample_file(admin_client):
     """The generated chargebacks.csv imports cleanly."""
     csv_text = (REPO_ROOT / "chargebacks.csv").read_text()

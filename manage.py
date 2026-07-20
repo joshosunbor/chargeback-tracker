@@ -6,6 +6,7 @@ Usage:
     .venv/bin/python manage.py create-user <username> [--password PW]
     .venv/bin/python manage.py set-password <username> [--password PW]
     .venv/bin/python manage.py list-users
+    .venv/bin/python manage.py import-csv <path>       # bulk-load cases
 
 With no --password, you're prompted for one (input hidden). On a PaaS,
 run this as a one-off command in the service shell after deploy to create
@@ -78,6 +79,57 @@ def list_users(args):
         print(f"  {r['id']:>3}  {r['username']:<20}  {r['created_at']}  {tag}")
 
 
+def import_csv(args):
+    """Bulk-import cases from a CSV file, reusing the same row parsing and
+    insert logic as the web importer. Skips duplicate case numbers, reports
+    per-row errors, and attributes rows to an admin account if one exists."""
+    import csv
+
+    from app.api.cases import _row_to_fields, insert_case
+
+    con = _connect()
+    con.execute("PRAGMA foreign_keys = ON")
+    admin = con.execute(
+        "SELECT id FROM users WHERE is_admin = 1 ORDER BY id LIMIT 1").fetchone()
+    user_id = admin["id"] if admin else None
+    now = utcnow()
+
+    created = skipped = 0
+    errors = []
+    try:
+        with open(args.path, newline="", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            headers = {(h or "").strip().lower() for h in (reader.fieldnames or [])}
+            missing = {"case_number", "merchant", "amount"} - headers
+            if missing:
+                sys.exit(f"error: CSV missing required column(s): {', '.join(sorted(missing))}")
+            for line_no, raw in enumerate(reader, start=2):
+                row = {(k or "").strip().lower(): v for k, v in raw.items()}
+                try:
+                    fields, status = _row_to_fields(row)
+                except ValueError as e:
+                    errors.append((line_no, str(e)))
+                    continue
+                if con.execute("SELECT 1 FROM cases WHERE case_number = ?",
+                               (fields["case_number"],)).fetchone():
+                    skipped += 1
+                    continue
+                try:
+                    insert_case(con, fields, status, user_id, now, "Imported from CSV (CLI)")
+                    created += 1
+                except sqlite3.IntegrityError:
+                    skipped += 1
+        con.commit()
+    except FileNotFoundError:
+        sys.exit(f"error: no such file: {args.path}")
+    finally:
+        con.close()
+
+    print(f"imported {created}, skipped {skipped} (duplicates), {len(errors)} error(s)")
+    for line_no, msg in errors:
+        print(f"  row {line_no}: {msg}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Chargeback Tracker admin CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -95,6 +147,10 @@ def main():
 
     p_list = sub.add_parser("list-users", help="list existing accounts")
     p_list.set_defaults(func=list_users)
+
+    p_import = sub.add_parser("import-csv", help="bulk-import cases from a CSV file")
+    p_import.add_argument("path")
+    p_import.set_defaults(func=import_csv)
 
     args = parser.parse_args()
     args.func(args)
