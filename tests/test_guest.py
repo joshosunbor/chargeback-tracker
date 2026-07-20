@@ -10,11 +10,21 @@ def test_guest_session_reports_read_only(guest_client):
     assert body["username"] == "guest"
 
 
-def test_guest_can_read_cases_and_detail(guest_client, case):
+def test_guest_can_view_case_and_full_audit_trail(client, guest_client, case):
+    # A real user drives a status change so there's a multi-entry audit trail.
+    client.patch(f"/api/cases/{case['id']}",
+                 json={"status": "under_review", "status_note": "reviewing"})
+
     assert guest_client.get("/api/cases").status_code == 200
     detail = guest_client.get(f"/api/cases/{case['id']}")
     assert detail.status_code == 200
-    assert detail.get_json()["case_number"] == case["case_number"]
+    body = detail.get_json()
+    assert body["case_number"] == case["case_number"]
+
+    # The guest sees every status change, each with actor + timestamp.
+    trail = body["history"]
+    assert [h["new_status"] for h in trail] == ["new", "under_review"]
+    assert all(h["created_at"] and h["username"] for h in trail)
 
 
 def test_guest_write_endpoints_all_return_403(guest_client, case):

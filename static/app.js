@@ -32,6 +32,13 @@ const esc = (s) =>
 const money = (cents, currency) =>
   (cents / 100).toLocaleString(undefined, { style: "currency", currency: currency || "USD" });
 
+const fmtDateTime = (iso) => {
+  const d = new Date(iso);
+  return isNaN(d.getTime())
+    ? esc(iso)
+    : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+};
+
 const badge = (status) => `<span class="badge ${esc(status)}">${esc(status.replace("_", " "))}</span>`;
 
 const statusOptions = (selected) =>
@@ -261,6 +268,7 @@ async function renderDetail(id) {
   const writable = canWrite();
 
   view.innerHTML = `
+    <a class="back-link" href="#/">← Back to cases</a>
     <div class="card">
       <div class="row" style="justify-content: space-between">
         <h2 style="margin:0">${esc(c.case_number)} ${badge(c.status)}</h2>
@@ -286,20 +294,25 @@ async function renderDetail(id) {
     </div>
 
     <div class="card">
-      <h3>History</h3>
-      <ul class="timeline">
+      <h3>Status history</h3>
+      <ol class="audit-trail">
         ${c.history.map((h) => `
-          <li>${h.old_status ? `${badge(h.old_status)} → ` : ""}${badge(h.new_status)}
-              ${h.note ? ` — ${esc(h.note)}` : ""}
-              <span class="muted">${h.username ? `by ${esc(h.username)} · ` : ""}${esc(h.created_at)}</span></li>`).join("")}
-      </ul>
+          <li>
+            <span class="audit-dot" aria-hidden="true"></span>
+            <div class="audit-item">
+              <div class="audit-change">${h.old_status ? `${badge(h.old_status)} <span class="audit-arrow">→</span> ` : ""}${badge(h.new_status)}</div>
+              ${h.note ? `<div class="audit-note">${esc(h.note)}</div>` : ""}
+              <div class="audit-meta">${h.username ? `<strong>${esc(h.username)}</strong> · ` : ""}${fmtDateTime(h.created_at)}</div>
+            </div>
+          </li>`).join("")}
+      </ol>
     </div>
 
     <div class="card">
       <h3>Notes</h3>
       ${c.notes.length === 0 ? `<p class="empty">No notes yet.</p>` : `
       <ul class="plain">
-        ${c.notes.map((n) => `<li>${esc(n.body)} <span class="muted">${n.username ? `— ${esc(n.username)} · ` : ""}${esc(n.created_at)}</span></li>`).join("")}
+        ${c.notes.map((n) => `<li>${esc(n.body)} <span class="muted">${n.username ? `— ${esc(n.username)} · ` : ""}${fmtDateTime(n.created_at)}</span></li>`).join("")}
       </ul>`}
       ${writable ? `
       <div class="row" style="margin-top:0.75rem">
@@ -315,7 +328,7 @@ async function renderDetail(id) {
         ${c.attachments.map((a) => `
           <li class="row" style="justify-content: space-between">
             <span><a href="/api/attachments/${a.id}">${esc(a.filename)}</a>
-              <span class="muted">${(a.size_bytes / 1024).toFixed(1)} KB · ${a.username ? `${esc(a.username)} · ` : ""}${esc(a.created_at)}</span></span>
+              <span class="muted">${(a.size_bytes / 1024).toFixed(1)} KB · ${a.username ? `${esc(a.username)} · ` : ""}${fmtDateTime(a.created_at)}</span></span>
             ${writable ? `<button class="secondary" data-del-attachment="${a.id}">Remove</button>` : ""}
           </li>`).join("")}
       </ul>`}

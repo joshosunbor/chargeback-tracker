@@ -107,6 +107,29 @@ tbody tr:hover { background: #f6f9ff; }
 
 ul.timeline, ul.plain { list-style: none; padding: 0; margin: 0; }
 ul.timeline li, ul.plain li { padding: 0.5rem 0; border-bottom: 1px solid #eef0f4; font-size: 0.9rem; }
+
+/* Back navigation from a case detail to the list */
+.back-link { display: inline-block; margin-bottom: 1rem; color: #2563eb; text-decoration: none; font-size: 0.9rem; font-weight: 600; }
+.back-link:hover { text-decoration: underline; }
+
+/* Audit trail — vertical timeline of status changes */
+ol.audit-trail { list-style: none; margin: 0; padding: 0; }
+ol.audit-trail li { position: relative; padding: 0 0 1.15rem 1.5rem; }
+ol.audit-trail li:last-child { padding-bottom: 0; }
+ol.audit-trail li::before {
+  content: ""; position: absolute; left: 4px; top: 0.55rem; bottom: -0.15rem;
+  width: 2px; background: #e7ecf5;
+}
+ol.audit-trail li:last-child::before { display: none; }
+.audit-dot {
+  position: absolute; left: 0; top: 0.3rem; width: 10px; height: 10px;
+  border-radius: 50%; background: #2563eb; box-shadow: 0 0 0 2px #fff;
+}
+.audit-change { font-size: 0.9rem; }
+.audit-arrow { color: #98a2b3; margin: 0 0.15rem; }
+.audit-note { font-size: 0.88rem; color: #475467; margin-top: 0.3rem; }
+.audit-meta { font-size: 0.78rem; color: #98a2b3; margin-top: 0.25rem; }
+.audit-meta strong { color: #667085; font-weight: 600; }
 .muted { color: #667085; font-size: 0.8rem; }
 .row { display: flex; gap: 0.5rem; align-items: center; }
 .row textarea { flex: 1; padding: 0.5rem; border: 1px solid #cbd2dc; border-radius: 6px; resize: vertical; }
