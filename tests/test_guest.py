@@ -10,10 +10,10 @@ def test_guest_session_reports_read_only(guest_client):
     assert body["username"] == "guest"
 
 
-def test_guest_can_view_case_and_full_audit_trail(client, guest_client, case):
-    # A real user drives a status change so there's a multi-entry audit trail.
-    client.patch(f"/api/cases/{case['id']}",
-                 json={"status": "under_review", "status_note": "reviewing"})
+def test_guest_can_view_case_and_full_audit_trail(admin_client, guest_client, case):
+    # An admin drives a status change so there's a multi-entry audit trail.
+    admin_client.patch(f"/api/cases/{case['id']}",
+                       json={"status": "under_review", "status_note": "reviewing"})
 
     assert guest_client.get("/api/cases").status_code == 200
     detail = guest_client.get(f"/api/cases/{case['id']}")
@@ -61,7 +61,7 @@ def test_guest_writes_do_not_change_data(guest_client, case):
 
 
 def test_guest_cannot_delete_attachment_but_can_download(client, guest_client, case):
-    # A real user uploads evidence...
+    # A regular authenticated user uploads evidence (attach is a contributor write)...
     att = client.post(f"/api/cases/{case['id']}/attachments",
                       data={"file": (io.BytesIO(b"evidence"), "e.txt")},
                       content_type="multipart/form-data").get_json()

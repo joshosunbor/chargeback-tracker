@@ -70,14 +70,17 @@ def test_login_logout_cycle(client, anon_client):
     assert anon_client.get("/api/cases").status_code == 401
 
 
-def test_actions_are_attributed(client, case):
-    client.patch(f"/api/cases/{case['id']}", json={"status": "under_review"})
+def test_actions_are_attributed(client, admin_client, case):
+    # Case created by alice (non-admin); the admin-only status change is driven
+    # by the admin; the note is added by alice. Each action is attributed to its
+    # actor.
+    admin_client.patch(f"/api/cases/{case['id']}", json={"status": "under_review"})
     note = client.post(f"/api/cases/{case['id']}/notes", json={"body": "checking"}).get_json()
     assert note["username"] == "alice"
 
     detail = client.get(f"/api/cases/{case['id']}").get_json()
     assert detail["created_by_username"] == "alice"
-    assert all(h["username"] == "alice" for h in detail["history"])
+    assert [h["username"] for h in detail["history"]] == ["alice", "admin"]
 
 
 def test_migration_adds_columns_to_existing_db(tmp_path):

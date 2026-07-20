@@ -266,6 +266,7 @@ function renderNew() {
 async function renderDetail(id) {
   const c = await api(`/api/cases/${id}`);
   const writable = canWrite();
+  const isAdmin = !!(currentUser && currentUser.is_admin);
 
   view.innerHTML = `
     <a class="back-link" href="#/">← Back to cases</a>
@@ -329,7 +330,7 @@ async function renderDetail(id) {
           <li class="row" style="justify-content: space-between">
             <span><a href="/api/attachments/${a.id}">${esc(a.filename)}</a>
               <span class="muted">${(a.size_bytes / 1024).toFixed(1)} KB · ${a.username ? `${esc(a.username)} · ` : ""}${fmtDateTime(a.created_at)}</span></span>
-            ${writable ? `<button class="secondary" data-del-attachment="${a.id}">Remove</button>` : ""}
+            ${isAdmin ? `<button class="secondary" data-del-attachment="${a.id}">Remove</button>` : ""}
           </li>`).join("")}
       </ul>`}
       ${writable ? `

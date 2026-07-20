@@ -39,7 +39,7 @@ def test_duplicate_case_number_conflicts(client, case):
     assert res.status_code == 409
 
 
-def test_list_and_filter(client, case):
+def test_list_and_filter(client, admin_client, case):
     client.post("/api/cases", json={
         "case_number": "CB-1002", "merchant": "Globex", "amount_cents": 100,
     })
@@ -48,18 +48,18 @@ def test_list_and_filter(client, case):
     assert len(client.get("/api/cases?q=Globex").get_json()) == 1
     assert len(client.get("/api/cases?q=nomatch").get_json()) == 0
 
-    client.patch(f"/api/cases/{case['id']}", json={"status": "won"})
+    admin_client.patch(f"/api/cases/{case['id']}", json={"status": "won"})
     won = client.get("/api/cases?status=won").get_json()
     assert [c["case_number"] for c in won] == ["CB-1001"]
 
 
-def test_status_change_writes_history_and_resolves(client, case):
-    res = client.patch(f"/api/cases/{case['id']}", json={
+def test_status_change_writes_history_and_resolves(client, admin_client, case):
+    res = admin_client.patch(f"/api/cases/{case['id']}", json={
         "status": "under_review", "status_note": "Gathering evidence",
     })
     assert res.status_code == 200
 
-    res = client.patch(f"/api/cases/{case['id']}", json={"status": "won"})
+    res = admin_client.patch(f"/api/cases/{case['id']}", json={"status": "won"})
     updated = res.get_json()
     assert updated["status"] == "won"
     assert updated["resolved_date"]  # auto-stamped on terminal status
@@ -69,27 +69,29 @@ def test_status_change_writes_history_and_resolves(client, case):
     assert history[1]["note"] == "Gathering evidence"
 
 
-def test_invalid_status_rejected(client, case):
-    res = client.patch(f"/api/cases/{case['id']}", json={"status": "bogus"})
+def test_invalid_status_rejected(admin_client, case):
+    res = admin_client.patch(f"/api/cases/{case['id']}", json={"status": "bogus"})
     assert res.status_code == 400
 
 
-def test_same_status_is_noop(client, case):
-    res = client.patch(f"/api/cases/{case['id']}", json={"status": "new"})
+def test_same_status_is_noop(admin_client, case):
+    res = admin_client.patch(f"/api/cases/{case['id']}", json={"status": "new"})
     assert res.status_code == 200
-    assert len(client.get(f"/api/cases/{case['id']}").get_json()["history"]) == 1
+    assert len(admin_client.get(f"/api/cases/{case['id']}").get_json()["history"]) == 1
 
 
-def test_delete_cascades(client, case):
+def test_delete_cascades(client, admin_client, case):
     client.post(f"/api/cases/{case['id']}/notes", json={"body": "note"})
-    assert client.delete(f"/api/cases/{case['id']}").status_code == 204
+    assert admin_client.delete(f"/api/cases/{case['id']}").status_code == 204
     assert client.get(f"/api/cases/{case['id']}").status_code == 404
 
 
-def test_missing_case_404s(client):
-    assert client.get("/api/cases/999").status_code == 404
-    assert client.patch("/api/cases/999", json={"status": "won"}).status_code == 404
-    assert client.delete("/api/cases/999").status_code == 404
+def test_missing_case_404s(admin_client):
+    # 404 (not 403) requires reaching the view, so use an admin for the
+    # admin-only PATCH/DELETE routes.
+    assert admin_client.get("/api/cases/999").status_code == 404
+    assert admin_client.patch("/api/cases/999", json={"status": "won"}).status_code == 404
+    assert admin_client.delete("/api/cases/999").status_code == 404
 
 
 # ---------- notes ----------
@@ -117,13 +119,14 @@ def upload(client, case_id, filename="receipt.pdf", content=b"%PDF-1.4 fake"):
 
 
 def test_upload_download_roundtrip(client, case):
-    res = upload(client, case["id"])
+    res = upload(client, case["id"])  # attach is open to any authenticated user
     assert res.status_code == 201
     att = res.get_json()
     assert att["filename"] == "receipt.pdf"
     assert att["size_bytes"] == len(b"%PDF-1.4 fake")
     assert "stored_name" not in att  # internal detail not exposed
 
+    # Download stays open to any authenticated user.
     res = client.get(f"/api/attachments/{att['id']}")
     assert res.status_code == 200
     assert res.data == b"%PDF-1.4 fake"
@@ -143,10 +146,11 @@ def test_upload_requires_file(client, case):
     assert res.status_code == 400
 
 
-def test_delete_attachment(client, case, app):
+def test_delete_attachment(client, admin_client, case, app):
+    # A user attaches evidence (contribute); an admin deletes it (destroy).
     att = upload(client, case["id"]).get_json()
-    assert client.delete(f"/api/attachments/{att['id']}").status_code == 204
-    assert client.get(f"/api/attachments/{att['id']}").status_code == 404
+    assert admin_client.delete(f"/api/attachments/{att['id']}").status_code == 204
+    assert admin_client.get(f"/api/attachments/{att['id']}").status_code == 404
     # File is gone from disk too
     from pathlib import Path
     assert list(Path(app.config["ATTACHMENTS_DIR"]).iterdir()) == []
