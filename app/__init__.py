@@ -79,4 +79,12 @@ def create_app(data_dir=None):
     def index():
         return send_from_directory(app.static_folder, "index.html")
 
+    @app.route("/sample-chargebacks.csv")
+    def sample_csv():
+        # Public, read-only download so visitors can see the import format.
+        # A GET only — it grants no upload/import capability.
+        return send_from_directory(
+            ROOT, "chargebacks.csv", mimetype="text/csv",
+            as_attachment=True, download_name="chargebacks-sample.csv")
+
     return app

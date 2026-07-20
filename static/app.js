@@ -419,6 +419,7 @@ function renderLanding() {
           <div class="ico" aria-hidden="true">📥</div>
           <h3>CSV import</h3>
           <p>Bulk-load cases from a spreadsheet export, with a per-row summary of what was created, skipped, or rejected.</p>
+          <a class="feature-link" href="/sample-chargebacks.csv" download>Download sample CSV ↓</a>
         </div>
         <div class="feature">
           <div class="ico" aria-hidden="true">🔐</div>

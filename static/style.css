@@ -55,6 +55,8 @@ body.logged-out main { max-width: 940px; }
 .feature .ico { font-size: 1.6rem; line-height: 1; }
 .feature h3 { margin: 0.7rem 0 0.4rem; font-size: 1.02rem; }
 .feature p { margin: 0; color: #667085; font-size: 0.9rem; line-height: 1.55; }
+.feature-link { display: inline-block; margin-top: 0.75rem; font-size: 0.85rem; color: #2563eb; text-decoration: none; font-weight: 600; }
+.feature-link:hover { text-decoration: underline; }
 
 .landing-about {
   background: #f8fafc; border: 1px solid #eef0f4; border-radius: 14px;

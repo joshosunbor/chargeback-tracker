@@ -86,6 +86,24 @@ def test_import_forbidden_for_non_admin(client):
     assert client.get("/api/cases").get_json() == []
 
 
+def test_sample_csv_downloadable_without_auth(anon_client):
+    res = anon_client.get("/sample-chargebacks.csv")
+    assert res.status_code == 200
+    assert "text/csv" in res.headers["Content-Type"]
+    assert res.headers["Content-Disposition"].startswith("attachment")
+    assert res.get_data(as_text=True).splitlines()[0].startswith("case_number,merchant")
+
+
+def test_sample_csv_grants_guest_no_upload(guest_client):
+    # The guest can read the sample, but that must not enable importing.
+    assert guest_client.get("/sample-chargebacks.csv").status_code == 200
+    res = guest_client.post(
+        "/api/cases/import",
+        data={"file": (io.BytesIO(b"case_number,merchant,amount\nA,B,1"), "c.csv")},
+        content_type="multipart/form-data")
+    assert res.status_code == 403
+
+
 def test_import_sample_file(admin_client):
     """The generated chargebacks.csv imports cleanly."""
     csv_text = (REPO_ROOT / "chargebacks.csv").read_text()
