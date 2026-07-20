@@ -43,6 +43,14 @@ def admin_client(app):
 
 
 @pytest.fixture
+def guest_client(app):
+    """Test client in a shared read-only guest (demo) session."""
+    c = app.test_client()
+    assert c.post("/api/auth/guest").status_code == 200
+    return c
+
+
+@pytest.fixture
 def case(client):
     """A freshly created case, returned as its JSON dict."""
     res = client.post("/api/cases", json={

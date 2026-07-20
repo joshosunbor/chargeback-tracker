@@ -9,15 +9,26 @@ bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 
 def current_user():
-    """The logged-in user's row, or None. Usable from any request context."""
+    """The logged-in user's row, or None. Usable from any request context.
+    Note: a guest (demo) session has no user row — use is_guest() for that."""
     user_id = session.get("user_id")
     if user_id is None:
         return None
     return get_db().execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
 
 
+def is_guest():
+    """True when the session is a shared read-only demo (guest) session."""
+    return bool(session.get("guest"))
+
+
 def public_user(row):
-    return {"id": row["id"], "username": row["username"], "is_admin": bool(row["is_admin"])}
+    return {"id": row["id"], "username": row["username"],
+            "is_admin": bool(row["is_admin"]), "is_guest": False}
+
+
+def guest_principal():
+    return {"id": None, "username": "guest", "is_admin": False, "is_guest": True}
 
 
 def signup_open():
@@ -72,15 +83,26 @@ def login():
     return jsonify(public_user(row))
 
 
+@bp.post("/guest")
+def guest_login():
+    """Start a shared read-only demo session. Guests can view synthetic data
+    but every mutating request is rejected by the API guard (see create_app)."""
+    session.clear()
+    session["guest"] = True
+    return jsonify(guest_principal())
+
+
 @bp.post("/logout")
 def logout():
-    session.pop("user_id", None)
+    session.clear()
     return "", 204
 
 
 @bp.get("/me")
 def me():
     row = current_user()
-    if row is None:
-        return jsonify({"error": "not logged in"}), 401
-    return jsonify(public_user(row))
+    if row is not None:
+        return jsonify(public_user(row))
+    if is_guest():
+        return jsonify(guest_principal())
+    return jsonify({"error": "not logged in"}), 401

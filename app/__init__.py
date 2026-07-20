@@ -60,11 +60,20 @@ def create_app(data_dir=None):
     app.register_blueprint(attachments.bp)
 
     @app.before_request
-    def require_login():
+    def guard_api():
+        # Central access control for the API. /api/auth/* handles its own auth.
         path = request.path
-        if path.startswith("/api/") and not path.startswith("/api/auth/"):
-            if auth.current_user() is None:
-                return jsonify({"error": "authentication required"}), 401
+        if not path.startswith("/api/") or path.startswith("/api/auth/"):
+            return
+        user = auth.current_user()
+        guest = auth.is_guest()
+        if user is None and not guest:
+            return jsonify({"error": "authentication required"}), 401
+        # Guests are strictly read-only: every mutating method is rejected here,
+        # before any view runs, so it holds for every endpoint (present and
+        # future) even when called directly against the API.
+        if guest and request.method not in ("GET", "HEAD", "OPTIONS"):
+            return jsonify({"error": "read-only demo: sign in to make changes"}), 403
 
     @app.route("/")
     def index():

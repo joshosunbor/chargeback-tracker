@@ -4,6 +4,10 @@ const userBox = document.getElementById("userBox");
 
 let currentUser = null;
 
+// Real logged-in (non-guest) users may modify data. Guests are read-only —
+// but this only hides controls; the server enforces it independently.
+const canWrite = () => !!(currentUser && !currentUser.is_guest);
+
 // ---------- helpers ----------
 
 async function api(path, options = {}) {
@@ -48,7 +52,11 @@ function renderUserBox() {
     userBox.innerHTML = "";
     return;
   }
-  userBox.innerHTML = `<span>${esc(currentUser.username)}</span><button id="logoutBtn">Log out</button>`;
+  const label = currentUser.is_guest
+    ? `<span class="guest-tag">Guest · read-only</span>`
+    : `<span>${esc(currentUser.username)}</span>`;
+  const action = currentUser.is_guest ? "Exit demo" : "Log out";
+  userBox.innerHTML = `${label}<button id="logoutBtn">${action}</button>`;
   document.getElementById("logoutBtn").onclick = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     currentUser = null;
@@ -109,6 +117,7 @@ async function renderList() {
   const cases = await api(`/api/cases?${params}`);
 
   const isAdmin = !!(currentUser && currentUser.is_admin);
+  const writable = canWrite();
 
   view.innerHTML = `
     <div class="toolbar">
@@ -120,7 +129,7 @@ async function renderList() {
       <div class="spacer"></div>
       ${isAdmin ? `<button id="importCsv" class="secondary">Import CSV</button>
       <input type="file" id="csvInput" accept=".csv,text/csv" style="display:none">` : ""}
-      <button id="newCase">+ New case</button>
+      ${writable ? `<button id="newCase">+ New case</button>` : ""}
     </div>
     <div id="importSummary"></div>
     ${cases.length === 0 ? `<p class="empty">No cases found.</p>` : `
@@ -141,7 +150,8 @@ async function renderList() {
     </table>`}
   `;
 
-  document.getElementById("newCase").onclick = () => { location.hash = "#/new"; };
+  const newCaseBtn = document.getElementById("newCase");
+  if (newCaseBtn) newCaseBtn.onclick = () => { location.hash = "#/new"; };
   document.getElementById("statusFilter").onchange = (e) => { renderList.status = e.target.value; renderList().catch(showError); };
   document.getElementById("search").oninput = (e) => {
     clearTimeout(renderList.timer);
@@ -248,12 +258,13 @@ function renderNew() {
 
 async function renderDetail(id) {
   const c = await api(`/api/cases/${id}`);
+  const writable = canWrite();
 
   view.innerHTML = `
     <div class="card">
       <div class="row" style="justify-content: space-between">
         <h2 style="margin:0">${esc(c.case_number)} ${badge(c.status)}</h2>
-        <button class="danger" id="deleteCase">Delete</button>
+        ${writable ? `<button class="danger" id="deleteCase">Delete</button>` : ""}
       </div>
       <div class="grid" style="margin-top:1rem">
         <div class="field"><label>Merchant</label><div>${esc(c.merchant)}</div></div>
@@ -264,13 +275,14 @@ async function renderDetail(id) {
         <div class="field"><label>Due</label><div>${esc(c.due_date) || "—"}</div></div>
         <div class="field"><label>Resolved</label><div>${esc(c.resolved_date) || "—"}</div></div>
       </div>
+      ${writable ? `
       <div class="row" style="margin-top:1rem">
         <div class="field"><label>Change status</label>
           <select id="statusSelect">${statusOptions(c.status)}</select>
         </div>
         <input id="statusNote" placeholder="Optional note for the audit log" style="flex:1;padding:0.4rem 0.6rem;border:1px solid #cbd2dc;border-radius:6px;align-self:flex-end">
         <button id="applyStatus" style="align-self:flex-end">Apply</button>
-      </div>
+      </div>` : ""}
     </div>
 
     <div class="card">
@@ -289,10 +301,11 @@ async function renderDetail(id) {
       <ul class="plain">
         ${c.notes.map((n) => `<li>${esc(n.body)} <span class="muted">${n.username ? `— ${esc(n.username)} · ` : ""}${esc(n.created_at)}</span></li>`).join("")}
       </ul>`}
+      ${writable ? `
       <div class="row" style="margin-top:0.75rem">
         <textarea id="noteBody" rows="2" placeholder="Add a note…"></textarea>
         <button id="addNote">Add</button>
-      </div>
+      </div>` : ""}
     </div>
 
     <div class="card">
@@ -303,17 +316,21 @@ async function renderDetail(id) {
           <li class="row" style="justify-content: space-between">
             <span><a href="/api/attachments/${a.id}">${esc(a.filename)}</a>
               <span class="muted">${(a.size_bytes / 1024).toFixed(1)} KB · ${a.username ? `${esc(a.username)} · ` : ""}${esc(a.created_at)}</span></span>
-            <button class="secondary" data-del-attachment="${a.id}">Remove</button>
+            ${writable ? `<button class="secondary" data-del-attachment="${a.id}">Remove</button>` : ""}
           </li>`).join("")}
       </ul>`}
+      ${writable ? `
       <div class="row" style="margin-top:0.75rem">
         <input type="file" id="fileInput">
         <button id="uploadBtn">Upload</button>
-      </div>
+      </div>` : ""}
     </div>
   `;
 
   const reload = () => renderDetail(id).catch(showError);
+
+  // Read-only guests never see these controls; guard so nothing is wired up.
+  if (!writable) return;
 
   document.getElementById("applyStatus").onclick = async () => {
     const status = document.getElementById("statusSelect").value;
@@ -378,7 +395,11 @@ function renderLanding() {
     <section class="landing-hero">
       <h1>Chargeback Tracker</h1>
       <p class="tagline">A demo app for tracking chargeback cases from first dispute through to resolution.</p>
-      <button class="btn-primary" id="landingLogin">Log in</button>
+      <div class="hero-cta">
+        <button class="btn-primary" id="landingLogin">Log in</button>
+        <button class="btn-secondary" id="landingGuest">Try the demo</button>
+      </div>
+      <p class="hero-note">The demo is read-only — browse the synthetic cases without signing in.</p>
     </section>
 
     <section class="landing-section">
@@ -417,6 +438,14 @@ function renderLanding() {
     <p class="landing-footer">Synthetic sample data · Personal project</p>
   `;
   document.getElementById("landingLogin").onclick = () => { location.hash = "#/login"; };
+  document.getElementById("landingGuest").onclick = async () => {
+    try {
+      currentUser = await api("/api/auth/guest", { method: "POST" });
+      renderUserBox();
+      location.hash = "#/";
+      route();
+    } catch (err) { showError(err); }
+  };
 }
 
 // ---------- router ----------
@@ -431,7 +460,10 @@ function route() {
   }
   const hash = location.hash || "#/";
   const caseMatch = hash.match(/^#\/case\/(\d+)$/);
-  if (hash === "#/new") return renderNew();
+  if (hash === "#/new") {
+    if (!canWrite()) { location.hash = "#/"; return; }  // guests can't create
+    return renderNew();
+  }
   if (caseMatch) return renderDetail(caseMatch[1]).catch(showError);
   return renderList().catch(showError);
 }
